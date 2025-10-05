@@ -2,11 +2,11 @@
 
 ## Overview
 
-**AI Release Notes Generator** is a GitHub Action that automatically generates human‑friendly release notes from your commit messages using OpenAI's Chat Completion API. It saves time during the release process by summarising features, improvements and bug fixes directly from your commit history.
+**AI Release Notes Generator** is a GitHub Action that automatically generates release notes from commit messages **without relying on any external APIs or services**. It groups commit messages by common prefixes (such as `feat` for features and `fix` for bug fixes) and assembles them into a structured Markdown document.
 
 ## Usage
 
-To use this action in your workflow, add the following step to your workflow YAML file:
+To use this action in your workflow, add a step similar to the following in your workflow YAML file:
 
 ```yaml
 jobs:
@@ -19,20 +19,12 @@ jobs:
       - name: Generate release notes
         id: release_notes
         uses: your-username/release-notes-ai@v1
-        with:
-          openai_key: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Display release notes
         run: echo "${{ steps.release_notes.outputs.release_notes }}"
 ```
 
-Replace `your-username` with your GitHub username (or organisation) and ensure you have stored your OpenAI API key in a repository secret named `OPENAI_API_KEY`.
-
-## Inputs
-
-| Name | Description | Required |
-|------|-------------|---------|
-| `openai_key` | OpenAI API key used to authenticate API requests. Store this in `secrets` and pass it via workflow inputs. | ✅ |
+Replace `your-username` with your GitHub username or organisation name. The action will run on every push event and set the `release_notes` output to a formatted string containing your release notes.
 
 ## Outputs
 
@@ -42,7 +34,13 @@ Replace `your-username` with your GitHub username (or organisation) and ensure y
 
 ## How It Works
 
-When triggered by a push event, the action collects the commit messages contained in the event payload. It constructs a prompt asking OpenAI to summarise the changes and posts this to the Chat Completion API. The resulting release notes are set as an output variable (`release_notes`) that you can use in subsequent steps, such as creating a GitHub Release or updating a changelog file.
+The action inspects the commit messages associated with the push event that triggered the workflow. It categorizes each commit message as follows:
+
+- **Features**: Any commit message beginning with `feat` or `feature`.
+- **Bug Fixes**: Any commit message beginning with `fix` or `bug`.
+- **Other Changes**: All remaining commit messages.
+
+These categories are then assembled into a Markdown document with headings for each section and bullet points for each commit. The result is returned via the `release_notes` output for use in subsequent steps, such as creating a GitHub release or updating a changelog.
 
 ## License
 
@@ -50,4 +48,4 @@ This project is released under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## Contributing
 
-Contributions are welcome! Feel free to open issues and pull requests to improve the action, add features or translations. Please ensure any code changes include appropriate tests and documentation updates.
+Contributions are welcome! If you'd like to improve this action or add new features, feel free to open an issue or submit a pull request. Please include appropriate tests and documentation with your changes.

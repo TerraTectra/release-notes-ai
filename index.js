@@ -1,61 +1,68 @@
 const core = require('@actions/core');
 const github = require('@actions/github');
-const fetch = require('node-fetch');
 
 /**
- * Main function for generating release notes using OpenAI.
- * This script is designed to run inside a GitHub Action context. It collects
- * commit messages from the push event payload, constructs a prompt, and
- * sends it to the OpenAI Chat Completion API to generate human‑friendly
- * release notes. The generated notes are returned as an output variable
- * named `release_notes`.
+ * Generate release notes from commit messages without external APIs.
+ *
+ * This script groups commit messages by prefix (e.g. `feat`, `fix`) and
+ * produces a formatted Markdown string. The resulting notes are exposed
+ * via the `release_notes` output of this action.
  */
 async function run() {
   try {
-    // Read inputs from action configuration
-    const openaiKey = core.getInput('openai_key', { required: true });
-
-    // Collect commit messages from the push event payload. If no commits
-    // are present (e.g. workflow triggered by a different event), fall back
-    // to an empty array.
-    const commits = (github.context.payload.commits || []).map((c) => c.message);
+    // Gather commit messages from the push event payload. When no commits
+    // are present (for example, if the workflow was triggered by a different
+    // event), an empty array is used.
+    const commits = (github.context.payload.commits || []).map(c => c.message);
     if (commits.length === 0) {
       core.warning('No commit messages found in the event payload.');
     }
 
-    const commitMessages = commits.join('\n');
-    const prompt = `Generate concise and informative release notes for the following list of commit messages. Summarise features, improvements and fixes in plain language without code details.\n\n${commitMessages}`;
-
-    // Prepare request body for OpenAI API
-    const body = {
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { role: 'system', content: 'You are an assistant that writes clean and friendly release notes for software projects.' },
-        { role: 'user', content: prompt }
-      ],
-      max_tokens: 300,
-      temperature: 0.5
+    // Categorize commit messages by their prefixes. Conventional prefixes such
+    // as `feat` or `feature` will be grouped under "Features", `fix` or `bug`
+    // under "Bug Fixes", and all others under "Other Changes".
+    const sections = {
+      Features: [],
+      'Bug Fixes': [],
+      Other: []
     };
 
-    // Call OpenAI Chat Completion API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiKey}`
-      },
-      body: JSON.stringify(body)
+    commits.forEach(msg => {
+      const lower = msg.toLowerCase();
+      if (lower.startsWith('feat') || lower.startsWith('feature')) {
+        sections.Features.push(msg);
+      } else if (lower.startsWith('fix') || lower.startsWith('bug')) {
+        sections['Bug Fixes'].push(msg);
+      } else {
+        sections.Other.push(msg);
+      }
     });
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`OpenAI API request failed: ${response.status} ${response.statusText}: ${text}`);
+    // Build the release notes in Markdown format.
+    let output = '';
+    if (sections.Features.length > 0) {
+      output += '### Features\n';
+      sections.Features.forEach(m => {
+        output += `- ${m}\n`;
+      });
+      output += '\n';
     }
-    const data = await response.json();
-    const notes = data.choices && data.choices.length > 0 ? data.choices[0].message.content.trim() : '';
+    if (sections['Bug Fixes'].length > 0) {
+      output += '### Bug Fixes\n';
+      sections['Bug Fixes'].forEach(m => {
+        output += `- ${m}\n`;
+      });
+      output += '\n';
+    }
+    if (sections.Other.length > 0) {
+      output += '### Other Changes\n';
+      sections.Other.forEach(m => {
+        output += `- ${m}\n`;
+      });
+    }
 
-    // Set the notes as an output
-    core.setOutput('release_notes', notes);
+    // Output the result to the `release_notes` output variable.
+    core.setOutput('release_notes', output.trim());
   } catch (error) {
     core.setFailed(error.message);
   }

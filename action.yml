@@ -1,18 +1,10 @@
 name: 'AI Release Notes Generator'
-description: 'Generate release notes using OpenAI based on commit messages from push events.'
+description: 'Generate release notes by categorizing commit messages (feat, fix, other) without external APIs.'
 
-# Define the inputs for the action.
-inputs:
-  openai_key:
-    description: 'OpenAI API key for authenticating with the OpenAI service.'
-    required: true
-
-# Define the outputs. The action returns the generated release notes in this output.
 outputs:
   release_notes:
     description: 'The generated release notes text.'
 
-# Define the runtime environment. This action uses a Node.js runtime.
 runs:
   using: 'node16'
   main: 'index.js'
